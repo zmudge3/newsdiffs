@@ -1,0 +1,3 @@
+[submodule "python-goose"]
+	path = python-goose
+	url = https://github.com/grangier/python-goose.git
