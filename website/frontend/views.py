@@ -13,6 +13,8 @@ import time
 from django.template import Context, RequestContext, loader
 from django.views.decorators.cache import cache_page
 
+from management.commands.scraper import scrape_with_goose
+
 OUT_FORMAT = '%B %d, %Y at %l:%M%P EDT'
 
 SEARCH_ENGINES = """
@@ -312,9 +314,6 @@ def article_history(request, urlarg=''):
     # Give an error on urls with the wrong hostname without hitting the
     # database.  These queries are usually spam.
     domain = url.split('/')[2]
-    if not is_valid_domain(domain):
-        return render_to_response('article_history_missing.html', {'url': url})
-
 
     try:
         try:
@@ -323,6 +322,7 @@ def article_history(request, urlarg=''):
             article = Article.objects.get(url=swap_http_https(url))
     except Article.DoesNotExist:
         try:
+            scrape_with_goose(url)
             return render_to_response('article_history_missing.html', {'url': url})
         except (TypeError, ValueError):
             # bug in django + mod_rewrite can cause this. =/

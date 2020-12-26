@@ -17,6 +17,8 @@ import diff_match_patch
 import parsers
 from parsers.baseparser import canonicalize, formatter, logger
 
+from goose import Goose
+
 GIT_PROGRAM = 'git'
 
 from django.core.management.base import BaseCommand
@@ -370,11 +372,11 @@ def get_update_delay(minutes_since_update):
     else:
         return 60*24*365*1e5  #ignore old articles
 
-def update_versions(todays_repo, do_all=False):
+def update_versions(todays_repo, do_all=False, using_goose=False):
     logger.info('Looking for articles to check')
     # For memory issues, restrict to the last year of articles
     threshold = datetime.now() - timedelta(days=366)
-    article_query = models.Article.objects.exclude(git_dir='old').filter(Q(last_update__gt=threshold) | 
+    article_query = models.Article.objects.exclude(git_dir='old').filter(Q(last_update__gt=threshold) |
                                                                          Q(initial_date__gt=threshold))
     articles = list(article_query)
     total_articles = len(articles)
@@ -404,7 +406,7 @@ def update_versions(todays_repo, do_all=False):
                      article.minutes_since_check(),
                      update_priority(article), i+1, len(articles))
         delay = get_update_delay(article.minutes_since_update())
-        if article.minutes_since_check() < delay and not do_all:
+        if (article.minutes_since_check() < delay and not do_all) or using_goose:
             continue
         logger.info('Considering %s', article.url)
 
@@ -435,6 +437,35 @@ def cleanup_git_repo(git_dir):
         age = time.time() - stat.st_ctime
         if age > 60*5:
             os.remove(fname)
+
+def scrape_with_goose(url):
+    ch = logging.FileHandler('/tmp/newsdiffs_logging', mode='w')
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    ch = logging.FileHandler('/tmp/newsdiffs_logging_errs', mode='a')
+    ch.setLevel(logging.WARNING)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    for repo in all_git_repos():
+        cleanup_git_repo(repo)
+
+    todays_repo = get_and_make_git_repo()
+
+    all_urls = [url]
+    logger.info('Got all %s urls; storing to database' % len(all_urls))
+    for i, url in enumerate(all_urls):
+        logger.debug('Woo: %d/%d is %s' % (i+1, len(all_urls), url))
+        if len(url) > 255:  #Icky hack, but otherwise they're truncated in DB.
+            continue
+        if not models.Article.objects.filter(url=url).count():
+            logger.debug('Adding!')
+            models.Article(url=url, git_dir=todays_repo).save()
+    logger.info('Done storing to database')
+
+    update_versions(todays_repo, using_goose=True)
 
 if __name__ == '__main__':
     print >> sys.stderr, "Try `python website/manage.py scraper`."
