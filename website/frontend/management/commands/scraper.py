@@ -17,8 +17,6 @@ import diff_match_patch
 import parsers
 from parsers.baseparser import canonicalize, formatter, logger
 
-from goose import Goose
-
 GIT_PROGRAM = 'git'
 
 from django.core.management.base import BaseCommand
