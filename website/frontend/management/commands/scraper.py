@@ -61,7 +61,6 @@ scanned them recently, unless --all is passed.
 
         todays_repo = get_and_make_git_repo()
 
-        update_articles(todays_repo)
         update_versions(todays_repo, options['all'])
 
 # Begin utility functions
@@ -372,7 +371,7 @@ def get_update_delay(minutes_since_update):
     else:
         return 60*24*365*1e5  #ignore old articles
 
-def update_versions(todays_repo, do_all=False, using_goose=False):
+def update_versions(todays_repo, do_all=False):
     logger.info('Looking for articles to check')
     # For memory issues, restrict to the last year of articles
     threshold = datetime.now() - timedelta(days=366)
@@ -406,7 +405,7 @@ def update_versions(todays_repo, do_all=False, using_goose=False):
                      article.minutes_since_check(),
                      update_priority(article), i+1, len(articles))
         delay = get_update_delay(article.minutes_since_update())
-        if (article.minutes_since_check() < delay and not do_all) or using_goose:
+        if article.minutes_since_check() < delay and not do_all:
             continue
         logger.info('Considering %s', article.url)
 
@@ -464,8 +463,7 @@ def scrape_with_goose(url):
             logger.debug('Adding!')
             models.Article(url=url, git_dir=todays_repo).save()
     logger.info('Done storing to database')
-
-    update_versions(todays_repo, using_goose=True)
+    update_versions(todays_repo)
 
 if __name__ == '__main__':
     print >> sys.stderr, "Try `python website/manage.py scraper`."

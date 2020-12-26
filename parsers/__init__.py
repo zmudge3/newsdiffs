@@ -8,11 +8,7 @@
 # List of parsers to import and use based on parser.domains
 
 parsers = """
-nyt.NYTParser
-cnn.CNNParser
-politico.PoliticoParser
-bbc.BBCParser
-washpo.WashPoParser
+gooseparser.GooseParser
 """.split()
 
 parser_dict = {}
@@ -21,11 +17,10 @@ parser_dict = {}
 for parsername in parsers:
     module, classname = parsername.rsplit('.', 1)
     parser = getattr(__import__(module, globals(), fromlist=[classname]), classname)
-    for domain in parser.domains:
-        parser_dict[domain] = parser
+    parser_dict['all'] = parser
 
 def get_parser(url):
-    return parser_dict[url.split('/')[2]]
+    return parser_dict['all']
 
 # Each feeder places URLs into the database to be checked periodically.
 
